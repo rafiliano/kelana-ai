@@ -101,3 +101,5 @@ def print_trip_summary(destination, country, days, budget, currency, travel_mont
     print(f"Travel Month    : {travel_month}")
 
 print_trip_summary(destination, country, days, budget, currency, travel_month)
+
+input("Press Enter to exit...")
