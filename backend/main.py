@@ -36,6 +36,14 @@ def health():
 def trip_category():
     return {"Backpacker", "Standard", "Luxury"}
 
+@app.get("/api/v1/recommendations")
+def trip_recommendation():
+    return {"Tokyo Tower", "Mount Fuji", "Shibuya"}
+
+@app.get("/api/v1/transportations")
+def trip_transportation():
+    return {"Bus", "Train", "Flight"}
+
 
 # POST endpoint — receives JSON, returns JSON
 @app.post("/api/v1/trips")
