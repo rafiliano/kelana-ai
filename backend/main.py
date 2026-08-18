@@ -1,40 +1,57 @@
-from services.trip_service import calculate_daily_budget, get_trip_category, get_transportation_recommendation, get_recommended_place, get_season_definition
+from pydantic import BaseModel
 
-# Homework — Enrich the Trip Summary
-print("========================")
-print("KelanaAI")
-print("========================")
-print("Where do you want to go?")
+class TripRequest(BaseModel):
+    destination  : str
+    days         : int
+    budget       : float
+    travel_style : str
 
-destination  = input("Destination : ")
-country      = input("Country : ")
-days         = int(input("Days : "))
-budget       = float(input("Budget : "))
-currency     = input("Currency : ")
-travel_month = input("Travel Month : ")
+# FastAPI validates the JSON body against this model
+# If a field is missing or wrong type, it returns 422 automatically
 
-def print_trip_summary(destination, country, days, budget, currency, travel_month):
-    print("========================")
-    print("Trip Summary")
-    print("========================")
-    print(f"Destination     : {destination}")
-    print(f"Country         : {country}")
-    print(f"Days            : {days}")
-    print(f"Budget          : {budget} {currency}")
-    print(f"Travel Month    : {travel_month}")
+from services.trip_service import (
+    calculate_daily_budget,
+    get_trip_category,
+    get_transportation_recommendation
+)
 
-print_trip_summary(destination, country, days, budget, currency, travel_month)
+from fastapi import FastAPI
 
-daily     = calculate_daily_budget(budget, days)
-category  = get_trip_category(budget)
-transport = get_transportation_recommendation(category)
-places    = get_recommended_place(country)
-season    = get_season_definition(travel_month)
+app = FastAPI()
 
-print(f"Season          : {season}")
-print(f"Category        : {category}")
-print(f"Daily Budget    : {daily} {currency}/day")
-print(f"Transportation  : {transport}")
-print(f"Recommended     : {places}")
+# a GET endpoint at the root path
+@app.get("/")
+def home():
+    return {
+        "message" : "Welcome to KelanaAI"
+    }
 
-input("Press Enter to exit...")
+@app.get("/health")
+def health():
+    return {
+        "status" : "Ok"
+    }
+
+@app.get("/api/v1/trip_categories")
+def trip_category():
+    return {"Backpacker", "Standard", "Luxury"}
+
+
+# POST endpoint — receives JSON, returns JSON
+@app.post("/api/v1/trips")
+def create_trip(request: TripRequest):
+    daily_budget = calculate_daily_budget(
+        request.budget, request.days
+    )
+    category = get_trip_category(
+        request.budget
+    )
+    recommendation_transportation = get_transportation_recommendation
+    return {
+        "destination" : request.destination,
+        "budget" : request.budget,
+        "daily_budget" : daily_budget,
+        "travel_style" : request_travel_style,
+        "category" : category,
+        "transportation" : recommendation_transportation
+    }
