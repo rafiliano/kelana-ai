@@ -1,4 +1,17 @@
 from pydantic import BaseModel
+from services.trip_service import (
+    calculate_daily_budget,
+    get_trip_category,
+    get_transportation_recommendation
+)
+from fastapi import FastAPI, HTTPException
+from models.trip import Trip
+from database import SessionLocal, init_db
+
+app = FastAPI()
+
+init_db()
+
 
 class TripRequest(BaseModel):
     destination  : str
@@ -8,16 +21,6 @@ class TripRequest(BaseModel):
 
 # FastAPI validates the JSON body against this model
 # If a field is missing or wrong type, it returns 422 automatically
-
-from services.trip_service import (
-    calculate_daily_budget,
-    get_trip_category,
-    get_transportation_recommendation
-)
-
-from fastapi import FastAPI
-
-app = FastAPI()
 
 # a GET endpoint at the root path
 @app.get("/")
@@ -48,18 +51,40 @@ def trip_transportation():
 # POST endpoint — receives JSON, returns JSON
 @app.post("/api/v1/trips")
 def create_trip(request: TripRequest):
-    daily_budget = calculate_daily_budget(
-        request.budget, request.days
+    # reuse Session 2 business logic
+    daily_budget = calculate_daily_budget(request.budget, request.days)
+    category     = get_trip_category(request.budget)
+
+    # create a Trip ORM object
+    trip = Trip(
+        destination  = request.destination,
+        days         = request.days,
+        budget       = request.budget,
+        category     = category,
+        daily_budget = daily_budget,
     )
-    category = get_trip_category(
-        request.budget
-    )
-    recommendation_transportation = get_transportation_recommendation
-    return {
-        "destination" : request.destination,
-        "budget" : request.budget,
-        "daily_budget" : daily_budget,
-        "travel_style" : request_travel_style,
-        "category" : category,
-        "transportation" : recommendation_transportation
-    }
+
+    # save to PostgreSQL
+    db = SessionLocal()
+    db.add(trip)
+    db.commit()
+    db.refresh(trip)  # get the auto-generated id
+    db.close()
+    return trip
+
+@app.get("/api/v1/trips")
+def list_trips():
+    db = SessionLocal()
+    trips = db.query(Trip).all()
+    db.close()
+    return trips
+
+@app.get("/api/v1/trips/{trip_id}")
+def get_trip(trip_id: int):
+    db = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    db.close()
+    # handling not found
+    if trip is None:
+        raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+    return trip
