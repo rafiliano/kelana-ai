@@ -4,6 +4,7 @@ from services.trip_service import (
     get_trip_category,
     get_transportation_recommendation
 )
+from services.bedrock_service import get_ai_recommendation
 from fastapi import FastAPI, HTTPException
 from models.trip import Trip
 from database import SessionLocal, init_db
@@ -52,9 +53,14 @@ def trip_transportation():
 @app.post("/api/v1/trips")
 def create_trip(request: TripRequest):
     # reuse Session 2 business logic
-    daily_budget = calculate_daily_budget(request.budget, request.days)
-    category     = get_trip_category(request.budget)
-
+    daily_budget     = calculate_daily_budget(request.budget, request.days)
+    category         = get_trip_category(request.budget)
+    ai_recommendation: str = get_ai_recommendation(
+        destination  = request.destination,
+        days         = request.days,
+        budget       = request.budget,
+        travel_style = request.travel_style,
+    )
     # create a Trip ORM object
     trip = Trip(
         destination  = request.destination,
@@ -62,6 +68,7 @@ def create_trip(request: TripRequest):
         budget       = request.budget,
         category     = category,
         daily_budget = daily_budget,
+        ai_recommendation = ai_recommendation,
     )
 
     # save to PostgreSQL
