@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from models.trip import Trip
 from database import SessionLocal, init_db
+from sqlalchemy import or_
 
 app = FastAPI()
 
@@ -76,6 +77,7 @@ def create_trip(request: TripRequest):
         days         = request.days,
         budget       = request.budget,
         category     = category,
+        travel_style = request.travel_style,   # <-- baris baru
         daily_budget = daily_budget,
         ai_recommendation = ai_recommendation,
     )
@@ -95,6 +97,20 @@ def list_trips():
     db.close()
     return trips
 
+@app.get("/api/v1/trips/search")
+def search_trips(destination: str = "", travel_style: str = ""):
+    db = SessionLocal()
+    query = db.query(Trip)
+
+    if destination.strip():
+        query = query.filter(Trip.destination.ilike(f"%{destination.strip()}%"))
+    if travel_style.strip():
+        query = query.filter(Trip.travel_style.ilike(f"%{travel_style.strip()}%"))
+
+    trips = query.all()
+    db.close()
+    return trips
+    
 @app.get("/api/v1/trips/{trip_id}")
 def get_trip(trip_id: int):
     db = SessionLocal()
