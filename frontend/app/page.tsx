@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { useRouter } from "next/navigation";
 import { generateTrip } from "@/services/tripService";
 import { NavBar } from "@/components/NavBar";
+import { isLoggedIn, getUserName } from "@/services/authService";
 
 function splitByDay(text: string): { title: string; content: string }[] {
   const lines = text.split("\n");
@@ -46,7 +47,16 @@ export default function Home() {
   const [result, setResult]   = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.push("/login");
+      return;
+    }
+    setUserName(getUserName());
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -110,10 +120,17 @@ export default function Home() {
 
         {/* Hero text */}
         <div className="text-center mb-8">
+          {userName && (
+            <p className="text-[#94a3b8] text-sm uppercase tracking-widest mb-2">
+              Welcome Back!
+            </p>
+          )}
           <h2 className="text-3xl md:text-4xl font-black text-[#1a1a2e] tracking-wide leading-tight"
               style={{ fontFamily: "var(--font-cinzel)" }}>
-            Where will your journey<br />
-            <span className="text-[#c0392b]">take you next?</span>
+            {userName ? userName : "Where will your journey"}<br />
+            <span className="text-[#c0392b]">
+              {userName ? "Where will you go next?" : "take you next?"}
+            </span>
           </h2>
           <p className="text-[#94a3b8] text-sm mt-3 tracking-widest uppercase">
             Powered by AI — your itinerary in seconds

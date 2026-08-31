@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { getTrips, searchTrips } from "@/services/tripService";
 import { TripCard } from "@/components/TripCard";
 import { NavBar } from "@/components/NavBar";
+import { isLoggedIn } from "@/services/authService";
 
 type SortOption = "latest" | "oldest" | "budget_high";
 
@@ -24,8 +26,14 @@ export default function TripsPage() {
   const [loading, setLoading]                   = useState(true);
   const [page, setPage]                         = useState(1);
   const PAGE_SIZE = 10;
+  const router    = useRouter();
 
   useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!isLoggedIn()) {
+      router.push("/login");
+      return;
+    }
     getTrips().then((data) => {
       setTrips(sortTrips(data, sortBy));
       setLoading(false);

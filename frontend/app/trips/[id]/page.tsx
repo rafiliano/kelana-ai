@@ -1,10 +1,13 @@
-// Shows a single trip detail page
-import { getTrip } from "@/services/tripService"
-import { TripCard } from "@/components/TripCard"
-import { NavBar } from "@/components/NavBar"
-import ReactMarkdown from "react-markdown"
+"use client";
 
-// Split the AI recommendation into day sections
+import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
+import { getTrip } from "@/services/tripService";
+import { TripCard } from "@/components/TripCard";
+import { NavBar } from "@/components/NavBar";
+import { isLoggedIn } from "@/services/authService";
+import ReactMarkdown from "react-markdown";
+
 function splitByDay(text: string): { title: string; content: string }[] {
   const lines = text.split("\n");
   const days: { title: string; content: string }[] = [];
@@ -30,20 +33,51 @@ function splitByDay(text: string): { title: string; content: string }[] {
   return days;
 }
 
-// Alternate left border colors per day for visual variety
 const dayColors = [
   "border-l-[#c0392b]",
   "border-l-[#c9a84c]",
-  "border-l-[#c0392b]",
   "border-l-[#6366f1]",
   "border-l-[#e8836a]",
+  "border-l-[#0d9488]",
 ];
 
-export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const trip    = await getTrip(parseInt(id))
+export default function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id }              = use(params);
+  const [trip, setTrip]     = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const router = useRouter();
 
-  if (!trip || trip.detail) {
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      router.push("/login");
+      return;
+    }
+
+    getTrip(parseInt(id)).then((data) => {
+      if (!data || data.detail) {
+        setNotFound(true);
+      } else {
+        setTrip(data);
+      }
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8faf9] flex flex-col">
+        <NavBar />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-[#c0392b] text-xs uppercase tracking-widest animate-pulse">
+            Loading...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound) {
     return (
       <div className="min-h-screen bg-[#f8faf9] flex flex-col">
         <NavBar />
@@ -59,10 +93,10 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
           </a>
         </div>
       </div>
-    )
+    );
   }
 
-  const sections = trip.ai_recommendation ? splitByDay(trip.ai_recommendation) : [];
+  const sections = trip?.ai_recommendation ? splitByDay(trip.ai_recommendation) : [];
 
   return (
     <div className="min-h-screen bg-[#f8faf9] flex flex-col">
@@ -72,10 +106,8 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
       <div className="flex-1 flex flex-col items-center p-4 md:p-6">
         <div className="w-full max-w-5xl flex flex-col gap-4">
 
-          {/* Trip summary card */}
           <TripCard trip={trip} />
 
-          {/* Day boxes */}
           {sections.length > 0 && (
             <>
               <p className="text-[#c9a84c] text-xs uppercase tracking-widest font-bold"
@@ -88,13 +120,10 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
                   key       = {i}
                   className = {`bg-white border border-[#e2e8f0] border-l-4 ${dayColors[i % dayColors.length]} p-5 shadow-sm`}
                 >
-                  {/* Day title */}
                   <p className="font-bold uppercase tracking-widest text-sm mb-3 pb-2 border-b border-[#e2e8f0] text-[#1a1a2e]"
                      style={{ fontFamily: "var(--font-cinzel)" }}>
                     {section.title}
                   </p>
-
-                  {/* Day content */}
                   <div className="prose prose-sm max-w-none
                     prose-headings:text-[#c0392b] prose-headings:font-bold prose-headings:uppercase prose-headings:tracking-wider prose-headings:text-xs
                     prose-p:text-[#334155] prose-p:leading-relaxed prose-p:text-sm
@@ -125,5 +154,5 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
       </footer>
 
     </div>
-  )
+  );
 }

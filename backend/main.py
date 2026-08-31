@@ -1,15 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from services.trip_service import (
     calculate_daily_budget,
     get_trip_category,
     get_transportation_recommendation
 )
 from services.bedrock_service import get_ai_recommendation
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from models.trip import Trip
+from models.user import User
 from database import SessionLocal, init_db
 from sqlalchemy import or_
+from services.auth_service import register as auth_register, login as auth_login, get_current_user
 
 app = FastAPI()
 
@@ -33,6 +35,15 @@ class TripRequest(BaseModel):
 # FastAPI validates the JSON body against this model
 # If a field is missing or wrong type, it returns 422 automatically
 
+class RegisterRequest(BaseModel):
+    name     : str
+    email    : str
+    password : str
+
+class LoginRequest(BaseModel):
+    email    : str
+    password : str
+
 # a GET endpoint at the root path
 @app.get("/")
 def home():
@@ -44,6 +55,41 @@ def home():
 def health():
     return {
         "status" : "Ok"
+    }
+
+# AUTH endpoints
+@app.post("/api/v1/auth/register")
+def register(request: RegisterRequest):
+    user = auth_register(
+        name     = request.name,
+        email    = request.email,
+        password = request.password,
+    )
+    return {
+        "id"         : user.id,
+        "name"       : user.name,
+        "email"      : user.email,
+        "created_at" : user.created_at,
+    }
+
+@app.post("/api/v1/auth/login")
+def login(request: LoginRequest):
+    return auth_login(
+        email    = request.email,
+        password = request.password,
+    )
+
+@app.get("/api/v1/auth/me")
+def get_me(user: User = Depends(get_current_user)):
+    db           = SessionLocal()
+    trip_count   = db.query(Trip).filter(Trip.user_id == user.id).count()
+    db.close()
+    return {
+        "id"          : user.id,
+        "name"        : user.name,
+        "email"       : user.email,
+        "created_at"  : user.created_at,
+        "total_trips" : trip_count,
     }
 
 @app.get("/api/v1/trip_categories")
@@ -61,24 +107,25 @@ def trip_transportation():
 
 # POST endpoint — receives JSON, returns JSON
 @app.post("/api/v1/trips")
-def create_trip(request: TripRequest):
+def create_trip(request: TripRequest, user: User = Depends(get_current_user)):
     # reuse Session 2 business logic
-    daily_budget     = calculate_daily_budget(request.budget, request.days)
-    category         = get_trip_category(request.budget)
+    daily_budget      = calculate_daily_budget(request.budget, request.days)
+    category          = get_trip_category(request.budget)
     ai_recommendation: str = get_ai_recommendation(
         destination  = request.destination,
         days         = request.days,
         budget       = request.budget,
         travel_style = request.travel_style,
     )
-    # create a Trip ORM object
+    # create a Trip ORM object — attach the logged-in user's id
     trip = Trip(
-        destination  = request.destination,
-        days         = request.days,
-        budget       = request.budget,
-        category     = category,
-        travel_style = request.travel_style,   # <-- baris baru
-        daily_budget = daily_budget,
+        user_id           = user.id,
+        destination       = request.destination,
+        days              = request.days,
+        budget            = request.budget,
+        category          = category,
+        travel_style      = request.travel_style,
+        daily_budget      = daily_budget,
         ai_recommendation = ai_recommendation,
     )
 
@@ -91,9 +138,10 @@ def create_trip(request: TripRequest):
     return trip
 
 @app.get("/api/v1/trips")
-def list_trips():
-    db = SessionLocal()
-    trips = db.query(Trip).all()
+def list_trips(user: User = Depends(get_current_user)):
+    # Only return trips belonging to the logged-in user
+    db    = SessionLocal()
+    trips = db.query(Trip).filter(Trip.user_id == user.id).all()
     db.close()
     return trips
 
@@ -155,11 +203,6 @@ def update_trip(trip_id: int, request: TripRequest):
 
     trip.category     = get_trip_category(trip.budget)
     trip.daily_budget = calculate_daily_budget(trip.budget, trip.days)
-
-    db.commit()
-    db.refresh(trip)
-    db.close()
-    return trip
 
     db.commit()
     db.refresh(trip)
