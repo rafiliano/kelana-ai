@@ -170,7 +170,7 @@ def get_trip(trip_id: int):
     return trip
 
 @app.delete("/api/v1/trips/{trip_id}")
-def del_trip(trip_id: int):
+def del_trip(trip_id: int, user: User = Depends(get_current_user)):
     db = SessionLocal()
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
 
@@ -179,14 +179,19 @@ def del_trip(trip_id: int):
         db.close()
         raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
 
-    # if found, delete it
+    # reject if trip belongs to another user
+    if trip.user_id != user.id:
+        db.close()
+        raise HTTPException(status_code=403, detail="Not allowed to delete another user's trip")
+
+    # if found and owned, delete it
     db.delete(trip)
     db.commit()
     db.close()
     return {"message": f"Trip {trip_id} deleted successfully"}
 
 @app.put("/api/v1/trips/{trip_id}")
-def update_trip(trip_id: int, request: TripRequest):
+def update_trip(trip_id: int, request: TripRequest, user: User = Depends(get_current_user)):
     db = SessionLocal()
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
 
@@ -194,6 +199,11 @@ def update_trip(trip_id: int, request: TripRequest):
     if trip is None:
         db.close()
         raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+
+    # reject if trip belongs to another user
+    if trip.user_id != user.id:
+        db.close()
+        raise HTTPException(status_code=403, detail="Not allowed to update another user's trip")
 
     # only update days and budget if provided
     if request.days:
