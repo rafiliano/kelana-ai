@@ -5,6 +5,7 @@ from services.trip_service import (
     get_transportation_recommendation
 )
 from services.bedrock_service import get_ai_recommendation
+from services.kb_service import ask_knowledge_base, retrieve_knowledge_base
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from models.trip import Trip
@@ -43,6 +44,9 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email    : str
     password : str
+
+class QuestionRequest(BaseModel):
+    question : str
 
 # a GET endpoint at the root path
 @app.get("/")
@@ -90,6 +94,35 @@ def get_me(user: User = Depends(get_current_user)):
         "email"       : user.email,
         "created_at"  : user.created_at,
         "total_trips" : trip_count,
+    }
+
+# Knowledge Base endpoint — ask a travel question
+@app.post("/api/v1/ask")
+def ask_endpoint(request: QuestionRequest):
+    # Step 1 — retrieve chunks and scores from knowledge base
+    kb_result    = retrieve_knowledge_base(request.question)
+    sources      = kb_result["sources"]
+
+    # Step 2 — check if any source is relevant enough (score >= 0.6)
+    top_score    = max((s["score"] or 0 for s in sources), default=0)
+
+    if top_score < 0.7:
+        return {
+            "question"   : request.question,
+            "answer"     : None,
+            "sources"    : sources,
+            "top_score"  : top_score,
+            "message"    : "No relevant information found in the knowledge base.",
+        }
+
+    # Step 3 — generate grounded answer using retrieved context
+    answer = ask_knowledge_base(request.question)
+
+    return {
+        "question"  : request.question,
+        "answer"    : answer,
+        "sources"   : sources,
+        "top_score" : top_score,
     }
 
 @app.get("/api/v1/trip_categories")

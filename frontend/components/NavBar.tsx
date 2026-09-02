@@ -39,6 +39,7 @@ export function NavBar() {
   const navLinks = [
     { href: "/",      label: "Trip My Plan" },
     { href: "/trips", label: "Trip History" },
+    { href: "/ask",   label: "Ask AI"       },
   ];
 
   return (
