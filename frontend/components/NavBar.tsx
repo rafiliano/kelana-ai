@@ -6,20 +6,18 @@ import { useEffect, useState } from "react";
 import { isLoggedIn, getUserName, removeToken } from "@/services/authService";
 
 export function NavBar() {
-  const pathname          = usePathname();
-  const router            = useRouter();
-  const [loggedIn, setLoggedIn]       = useState(false);
-  const [userName, setUserName]       = useState<string | null>(null);
+  const pathname              = usePathname();
+  const router                = useRouter();
+  const [loggedIn, setLoggedIn]         = useState(false);
+  const [userName, setUserName]         = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Read auth state from localStorage on mount
   useEffect(() => {
     setLoggedIn(isLoggedIn());
     setUserName(getUserName());
-    setDropdownOpen(false); // close dropdown on page change
+    setDropdownOpen(false);
   }, [pathname]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -37,111 +35,104 @@ export function NavBar() {
   };
 
   const navLinks = [
-    { href: "/",      label: "Trip My Plan" },
-    { href: "/trips", label: "Trip History" },
+    { href: "/",      label: "Plan Trip"    },
+    { href: "/trips", label: "My Trips"     },
     { href: "/ask",   label: "Ask AI"       },
   ];
 
   return (
-    <header className="w-full bg-white border-b-2 border-[#c0392b] shadow-sm">
-      <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between px-4 py-3 gap-2">
+    <header className="w-full bg-white border-b border-blue-100 shadow-sm">
+      <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-3 gap-4">
 
         {/* Logo */}
-        <div className="text-center md:text-left">
-          <h1 className="text-xl font-bold text-[#c9a84c] uppercase tracking-widest"
-              style={{ fontFamily: "var(--font-cinzel)" }}>
-            ✦ KelanaAI ✦
+        <Link href="/" className="flex-shrink-0">
+          <h1 className="text-lg font-black text-blue-600 tracking-wide">
+            KelanaAI
           </h1>
-          <p className="text-[#c0392b] text-xs tracking-widest uppercase">
+          <p className="text-green-600 text-xs hidden md:block">
             Plan your next adventure
           </p>
-        </div>
+        </Link>
 
-        {/* Right side — nav + auth */}
-        <div className="flex items-center gap-3 flex-wrap justify-center">
+        {/* Nav links — only when logged in */}
+        {loggedIn && (
+          <nav className="flex gap-1">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key       = {link.href}
+                  href      = {link.href}
+                  className = {`
+                    px-4 py-2 text-xs font-semibold rounded-full transition
+                    ${isActive
+                      ? "bg-blue-600 text-white"
+                      : "text-blue-600 hover:bg-blue-50"
+                    }
+                  `}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
 
-          {/* Nav links — only show when logged in */}
-          {loggedIn && (
-            <nav className="flex gap-2">
-              {navLinks.map((link) => {
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key       = {link.href}
-                    href      = {link.href}
-                    className = {`
-                      px-4 py-2 text-xs font-bold uppercase tracking-widest border transition
-                      ${isActive
-                        ? "bg-[#c0392b] text-white border-[#c0392b]"
-                        : "bg-transparent text-[#c0392b] border-[#c0392b] hover:bg-[#c0392b] hover:text-white"
-                      }
-                    `}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
+        {/* Auth section */}
+        {loggedIn ? (
+          <div className="relative flex-shrink-0" data-dropdown>
+            <button
+              onClick   = {() => setDropdownOpen(o => !o)}
+              className = "flex items-center gap-2 px-3 py-2 rounded-full border border-blue-100 hover:border-blue-300 transition"
+            >
+              <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
+                {userName ? userName[0] : "U"}
+              </div>
+              <span className="text-xs text-slate-600 font-medium hidden md:block">
+                {userName}
+              </span>
+              <span className="text-slate-400 text-xs">{dropdownOpen ? "▲" : "▼"}</span>
+            </button>
 
-          {/* Auth section */}
-          {loggedIn ? (
-            <div className="relative" data-dropdown>
-              {/* Avatar button */}
-              <button
-                onClick   = {() => setDropdownOpen(o => !o)}
-                className = "flex items-center gap-2 px-3 py-2 border border-[#e2e8f0] hover:border-[#c0392b] transition"
-              >
-                <div className="w-7 h-7 bg-[#c0392b] text-white flex items-center justify-center text-xs font-bold uppercase">
-                  {userName ? userName[0] : "U"}
+            {dropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-blue-100 rounded-2xl shadow-xl z-50 overflow-hidden">
+                <div className="px-4 py-3 border-b border-blue-50">
+                  <p className="text-xs font-bold text-slate-800">{userName}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Logged in</p>
                 </div>
-                <span className="text-xs text-[#475569] uppercase tracking-widest hidden md:block">
-                  {userName}
-                </span>
-                <span className="text-[#94a3b8] text-xs">{dropdownOpen ? "▲" : "▼"}</span>
-              </button>
+                <Link
+                  href      = "/profile"
+                  className = "flex items-center gap-2 w-full px-4 py-3 text-xs text-slate-600 font-medium hover:bg-blue-50 transition border-b border-blue-50"
+                  onClick   = {() => setDropdownOpen(false)}
+                >
+                  👤 Profile
+                </Link>
+                <button
+                  onClick   = {handleLogout}
+                  className = "flex items-center gap-2 w-full px-4 py-3 text-xs text-red-500 font-medium hover:bg-red-50 transition"
+                >
+                  🚪 Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-2 flex-shrink-0">
+            <Link
+              href      = "/login"
+              className = "px-4 py-2 text-xs font-semibold rounded-full border border-blue-600 text-blue-600 hover:bg-blue-50 transition"
+            >
+              Sign In
+            </Link>
+            <Link
+              href      = "/register"
+              className = "px-4 py-2 text-xs font-semibold rounded-full bg-blue-600 text-white hover:bg-blue-700 transition"
+            >
+              Register
+            </Link>
+          </div>
+        )}
 
-              {/* Dropdown */}
-              {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#e2e8f0] shadow-lg z-50">
-                  <div className="px-4 py-3 border-b border-[#e2e8f0]">
-                    <p className="text-xs font-bold text-[#1a1a2e] uppercase tracking-widest">{userName}</p>
-                    <p className="text-xs text-[#94a3b8] mt-0.5">Logged in</p>
-                  </div>
-                  <Link
-                    href      = "/profile"
-                    className = "block w-full text-left px-4 py-3 text-xs text-[#475569] font-bold uppercase tracking-widest hover:bg-[#f8faf9] transition border-b border-[#e2e8f0]"
-                    onClick   = {() => setDropdownOpen(false)}
-                  >
-                    👤 Profile
-                  </Link>
-                  <button
-                    onClick   = {handleLogout}
-                    className = "w-full text-left px-4 py-3 text-xs text-[#c0392b] font-bold uppercase tracking-widest hover:bg-[#fdf2f2] transition"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Link
-                href      = "/login"
-                className = "px-4 py-2 text-xs font-bold uppercase tracking-widest border border-[#c0392b] text-[#c0392b] hover:bg-[#c0392b] hover:text-white transition"
-              >
-                Sign In
-              </Link>
-              <Link
-                href      = "/register"
-                className = "px-4 py-2 text-xs font-bold uppercase tracking-widest bg-[#c0392b] text-white hover:bg-[#a93226] transition"
-              >
-                Register
-              </Link>
-            </div>
-          )}
-
-        </div>
       </div>
     </header>
   );

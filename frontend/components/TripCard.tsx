@@ -48,13 +48,13 @@ function getDestinationIcon(destination: string): string {
 
 function CategoryBadge({ category }: { category: string }) {
   const styles: Record<string, string> = {
-    backpacker : "border-[#c0392b] text-[#c0392b] bg-[#c0392b]/10",
-    standard   : "border-[#c9a84c] text-[#c9a84c] bg-[#c9a84c]/10",
-    luxury     : "border-[#c0392b] text-[#c0392b] bg-[#c0392b]/10",
+    backpacker : "border-green-300 text-green-700 bg-green-50",
+    standard   : "border-blue-300 text-blue-700 bg-blue-50",
+    luxury     : "border-purple-300 text-purple-700 bg-purple-50",
   };
-  const style = styles[category?.toLowerCase()] ?? "border-slate-300 text-slate-400";
+  const style = styles[category?.toLowerCase()] ?? "border-slate-300 text-slate-500";
   return (
-    <span className={`border px-2 py-0.5 text-xs uppercase tracking-widest font-bold ${style}`}>
+    <span className={`border rounded-full px-2 py-0.5 text-xs font-semibold ${style}`}>
       {category}
     </span>
   );
@@ -68,7 +68,7 @@ function TravelStyleBadge({ style }: { style: string }) {
   };
   const icon = icons[style?.toLowerCase()] ?? "✈️";
   return (
-    <span className="border border-[#e2e8f0] bg-[#f8faf9] text-[#64748b] px-2 py-0.5 text-xs uppercase tracking-widest font-bold">
+    <span className="border border-slate-200 bg-slate-50 text-slate-600 rounded-full px-2 py-0.5 text-xs font-semibold">
       {icon} {style}
     </span>
   );
@@ -76,19 +76,19 @@ function TravelStyleBadge({ style }: { style: string }) {
 
 export function TripCard({ trip, showDetailsButton = false }: { trip: any; showDetailsButton?: boolean }) {
   return (
-    <div className="bg-white border border-[#e2e8f0] border-l-4 border-l-[#c0392b] p-4 hover:border-l-[#c9a84c] hover:shadow-md transition shadow-sm">
+    <div className="bg-white rounded-2xl border border-blue-100 border-l-4 border-l-blue-600 p-4 hover:shadow-md hover:border-l-green-500 transition">
 
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#f0fdf8] border border-[#c0392b]/30 flex items-center justify-center text-xl flex-shrink-0">
+          <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
             {getDestinationIcon(trip.destination)}
           </div>
           <div>
-            <h3 className="text-[#1a1a2e] font-bold uppercase tracking-widest text-sm">
+            <h3 className="text-slate-800 font-bold text-sm">
               {trip.destination}
             </h3>
             {trip.created_at && (
-              <p className="text-[#94a3b8] text-xs mt-0.5">
+              <p className="text-slate-400 text-xs mt-0.5">
                 Submitted {formatDate(trip.created_at)}
               </p>
             )}
@@ -100,25 +100,25 @@ export function TripCard({ trip, showDetailsButton = false }: { trip: any; showD
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 text-xs border-t border-[#e2e8f0] pt-3 mt-1">
+      <div className="flex flex-wrap items-center justify-between gap-4 text-xs border-t border-blue-50 pt-3 mt-1">
         <div className="flex flex-wrap gap-4">
-          <p className="text-[#94a3b8]">
-            📅 <span className="text-[#475569]">{trip.days} days</span>
+          <p className="text-slate-400">
+            📅 <span className="text-slate-600">{trip.days} days</span>
           </p>
-          <p className="text-[#94a3b8]">
-            💰 <span className="text-[#475569]">{formatBudget(trip.budget)}</span>
+          <p className="text-slate-400">
+            💰 <span className="text-slate-600">{formatBudget(trip.budget)}</span>
           </p>
-          <p className="text-[#94a3b8]">
-            📊 <span className="text-[#475569]">{formatBudget(trip.daily_budget ?? 0)} / day</span>
+          <p className="text-slate-400">
+            📊 <span className="text-slate-600">{formatBudget(trip.daily_budget ?? 0)} / day</span>
           </p>
         </div>
 
         {showDetailsButton && trip.id && (
           <a
             href      = {`/trips/${trip.id}`}
-            className = "inline-block bg-[#c0392b] text-white text-xs font-bold uppercase tracking-widest px-4 py-2 hover:bg-[#a93226] transition flex-shrink-0"
+            className = "inline-block bg-blue-600 text-white text-xs font-semibold rounded-full px-4 py-1.5 hover:bg-blue-700 transition flex-shrink-0"
           >
-            Show Details →
+            View Details →
           </a>
         )}
       </div>
