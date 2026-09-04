@@ -37,9 +37,33 @@ export function getUserEmail(): string | null {
   return localStorage.getItem("user_email")
 }
 
-// Check if user is logged in
+// Decode JWT payload without a library — just base64 decode the middle part
+function decodeTokenExpiry(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.exp ?? null; // unix timestamp in seconds
+  } catch {
+    return null;
+  }
+}
+
+// Check if user is logged in AND token is not expired
 export function isLoggedIn(): boolean {
-  return !!getToken()
+  const token = getToken();
+  if (!token) return false;
+
+  const exp = decodeTokenExpiry(token);
+  if (!exp) return false;
+
+  // exp is in seconds, Date.now() is in milliseconds
+  const isExpired = Date.now() / 1000 > exp;
+  if (isExpired) {
+    // Auto-clear stale token
+    removeToken();
+    return false;
+  }
+
+  return true;
 }
 
 // Fetch profile from backend

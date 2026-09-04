@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from models.trip import Trip
 from models.user import User
+from models.conversation import Conversation, Message
 from database import SessionLocal, init_db
 from sqlalchemy import or_
 from services.auth_service import register as auth_register, login as auth_login, get_current_user
@@ -47,6 +48,13 @@ class LoginRequest(BaseModel):
 
 class QuestionRequest(BaseModel):
     question : str
+
+class ConversationRequest(BaseModel):
+    title : str = "New Conversation"
+
+class MessageRequest(BaseModel):
+    content    : str
+    get_reply  : bool = True  # set False to just save without calling AI
 
 # a GET endpoint at the root path
 @app.get("/")
@@ -106,7 +114,7 @@ def ask_endpoint(request: QuestionRequest):
     # Step 2 — check if any source is relevant enough (score >= 0.6)
     top_score    = max((s["score"] or 0 for s in sources), default=0)
 
-    if top_score < 0.7:
+    if top_score < 0.6:
         return {
             "question"   : request.question,
             "answer"     : None,
@@ -251,3 +259,214 @@ def update_trip(trip_id: int, request: TripRequest, user: User = Depends(get_cur
     db.refresh(trip)
     db.close()
     return trip
+
+# CONVERSATION endpoints
+
+@app.post("/api/v1/conversations", status_code=201)
+def create_conversation(
+    request : ConversationRequest,
+    user    : User = Depends(get_current_user),
+):
+    """Create a new conversation row and return its identifier."""
+    db           = SessionLocal()
+    conversation = Conversation(
+        user_id = user.id,
+        title   = request.title,
+    )
+    db.add(conversation)
+    db.commit()
+    db.refresh(conversation)
+    db.close()
+    return {"conversation_id": conversation.id}
+
+
+@app.get("/api/v1/conversations")
+def list_conversations(user: User = Depends(get_current_user)):
+    """List all conversations for the authenticated user, sorted by last message time."""
+    db            = SessionLocal()
+    conversations = (
+        db.query(Conversation)
+        .filter(Conversation.user_id == user.id)
+        .order_by(Conversation.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for c in conversations:
+        # Get the timestamp of the last message in this conversation
+        last_msg = (
+            db.query(Message)
+            .filter(Message.conversation_id == c.id)
+            .order_by(Message.created_at.desc())
+            .first()
+        )
+        result.append({
+            "id"              : c.id,
+            "title"           : c.title,
+            "created_at"      : c.created_at,
+            "last_message_at" : last_msg.created_at if last_msg else c.created_at,
+        })
+
+    db.close()
+
+    # Sort by last_message_at descending — most recently active first
+    result.sort(key=lambda x: x["last_message_at"], reverse=True)
+    return result
+
+
+@app.post("/api/v1/conversations/{conversation_id}/messages", status_code=201)
+def post_message(
+    conversation_id : int,
+    request         : MessageRequest,
+    user            : User = Depends(get_current_user),
+):
+    """
+    Save a user message to the conversation.
+    If get_reply=True, also call Bedrock AI with the full history and save the reply.
+    Returns both the user message and (optionally) the assistant reply.
+    """
+    db = SessionLocal()
+
+    # 1 — verify conversation exists and belongs to this user
+    conversation = db.query(Conversation).filter(
+        Conversation.id      == conversation_id,
+        Conversation.user_id == user.id,
+    ).first()
+
+    if not conversation:
+        db.close()
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # 2 — save the user message
+    user_message = Message(
+        conversation_id = conversation_id,
+        role            = "user",
+        content         = request.content,
+    )
+    db.add(user_message)
+    db.commit()
+    db.refresh(user_message)
+
+    response_data = {
+        "user_message" : {
+            "id"         : user_message.id,
+            "role"       : user_message.role,
+            "content"    : user_message.content,
+            "created_at" : user_message.created_at,
+        },
+        "assistant_message" : None,
+    }
+
+    # 3 — optionally get AI reply
+    if request.get_reply:
+        # load full conversation history for context
+        history = db.query(Message).filter(
+            Message.conversation_id == conversation_id
+        ).order_by(Message.created_at.asc()).all()
+
+        # build message list for Bedrock
+        bedrock_messages = [
+            {"role": m.role, "content": [{"text": m.content}]}
+            for m in history
+        ]
+
+        import boto3, json, os
+        bedrock_client = boto3.client(
+            service_name          = "bedrock-runtime",
+            region_name           = os.getenv("AWS_REGION"),
+            aws_access_key_id     = os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY"),
+        )
+
+        body = json.dumps({"messages": bedrock_messages})
+
+        bedrock_response = bedrock_client.invoke_model(
+            modelId     = os.getenv("MODEL_ID"),
+            body        = body,
+            contentType = "application/json",
+            accept      = "application/json",
+        )
+
+        result      = json.loads(bedrock_response["body"].read())
+        ai_text     = result["output"]["message"]["content"][0]["text"]
+
+        # 4 — save assistant reply
+        assistant_message = Message(
+            conversation_id = conversation_id,
+            role            = "assistant",
+            content         = ai_text,
+        )
+        db.add(assistant_message)
+        db.commit()
+        db.refresh(assistant_message)
+
+        response_data["assistant_message"] = {
+            "id"         : assistant_message.id,
+            "role"       : assistant_message.role,
+            "content"    : assistant_message.content,
+            "created_at" : assistant_message.created_at,
+        }
+
+    db.close()
+    return response_data
+
+
+@app.get("/api/v1/conversations/{conversation_id}/messages")
+def get_messages(
+    conversation_id : int,
+    user            : User = Depends(get_current_user),
+):
+    """Load full message history for a conversation."""
+    db = SessionLocal()
+
+    # verify ownership
+    conversation = db.query(Conversation).filter(
+        Conversation.id      == conversation_id,
+        Conversation.user_id == user.id,
+    ).first()
+
+    if not conversation:
+        db.close()
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages = db.query(Message).filter(
+        Message.conversation_id == conversation_id
+    ).order_by(Message.created_at.asc()).all()
+
+    db.close()
+    return [
+        {
+            "id"         : m.id,
+            "role"       : m.role,
+            "content"    : m.content,
+            "created_at" : m.created_at,
+        }
+        for m in messages
+    ]
+
+
+class ConversationUpdateRequest(BaseModel):
+    title : str
+
+@app.patch("/api/v1/conversations/{conversation_id}")
+def update_conversation_title(
+    conversation_id : int,
+    request         : ConversationUpdateRequest,
+    user            : User = Depends(get_current_user),
+):
+    """Rename a conversation title."""
+    db           = SessionLocal()
+    conversation = db.query(Conversation).filter(
+        Conversation.id      == conversation_id,
+        Conversation.user_id == user.id,
+    ).first()
+
+    if not conversation:
+        db.close()
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conversation.title = request.title
+    db.commit()
+    db.refresh(conversation)
+    db.close()
+    return {"id": conversation.id, "title": conversation.title}
