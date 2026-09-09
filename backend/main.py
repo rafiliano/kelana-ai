@@ -20,11 +20,7 @@ app = FastAPI()
 # Allow frontend at localhost:3000 to talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = [
-        "http://localhost:3000",
-        "https://kelana-e2am88d0r-rafiliano.vercel.app",
-        "https://*.vercel.app",
-    ],
+    allow_origins     = ["*"],
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
