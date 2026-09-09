@@ -35,10 +35,11 @@ export function NavBar() {
   };
 
   const navLinks = [
-    { href: "/",      label: "Plan Trip" },
-    { href: "/trips", label: "My Trips"  },
-    { href: "/chat",  label: "Chat"      },
-    { href: "/ask",   label: "Ask AI"    },
+    { href: "/",       label: "Plan Trip" },
+    { href: "/trips",  label: "My Trips"  },
+    { href: "/chat",   label: "Chat"      },
+    { href: "/ask",    label: "Ask AI"    },
+    { href: "/about",  label: "About"     },
   ];
 
   return (

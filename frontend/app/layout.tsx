@@ -17,7 +17,11 @@ const cinzel = Cinzel({
 
 export const metadata: Metadata = {
   title       : "KelanaAI — Plan your next adventure",
-  description : "AI-powered travel planner",
+  description : "AI-powered travel planner built with FastAPI and Next.js",
+  icons       : {
+    icon   : "/icon.svg",
+    apple  : "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
