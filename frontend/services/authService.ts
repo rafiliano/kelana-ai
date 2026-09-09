@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api/v1/auth"
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/auth`
 
 // Save token to localStorage
 export function saveToken(token: string) {
@@ -71,7 +71,7 @@ export async function fetchMe() {
   const token = getToken()
   if (!token) throw new Error("Not authenticated")
 
-  const res = await fetch("http://localhost:8000/api/v1/auth/me", {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/auth/me`, {
     headers: { "Authorization": `Bearer ${token}` },
   })
   if (!res.ok) throw new Error("Failed to fetch profile")
