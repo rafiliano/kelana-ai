@@ -187,9 +187,9 @@ def list_trips(user: User = Depends(get_current_user)):
     return trips
 
 @app.get("/api/v1/trips/search")
-def search_trips(destination: str = "", travel_style: str = ""):
-    db = SessionLocal()
-    query = db.query(Trip)
+def search_trips(destination: str = "", travel_style: str = "", user: User = Depends(get_current_user)):
+    db    = SessionLocal()
+    query = db.query(Trip).filter(Trip.user_id == user.id)
 
     if destination.strip():
         query = query.filter(Trip.destination.ilike(f"%{destination.strip()}%"))
@@ -199,13 +199,12 @@ def search_trips(destination: str = "", travel_style: str = ""):
     trips = query.all()
     db.close()
     return trips
-    
+
 @app.get("/api/v1/trips/{trip_id}")
-def get_trip(trip_id: int):
-    db = SessionLocal()
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+def get_trip(trip_id: int, user: User = Depends(get_current_user)):
+    db   = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.user_id == user.id).first()
     db.close()
-    # handling not found
     if trip is None:
         raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
     return trip
