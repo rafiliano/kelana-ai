@@ -9,7 +9,12 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # engine = the connection pool
-engine = create_engine(DATABASE_URL)
+# pool_pre_ping=True — tests connections before use, handles dropped SSL connections
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping   = True,
+    pool_recycle    = 300,   # recycle connections every 5 minutes
+)
 # SessionLocal = a factory for DB sessions
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
